@@ -172,6 +172,7 @@ util.inherits(SerialPort, EE);
 SerialPort.prototype.connectionId = -1;
 
 SerialPort.prototype.open = function (callback) {
+
   var options = {
     bitrate: parseInt(this.options.baudrate, 10),
     dataBits: this.options.databits,
@@ -184,18 +185,25 @@ SerialPort.prototype.open = function (callback) {
 };
 
 SerialPort.prototype.onOpen = function (callback, openInfo) {
-  this.connectionId = openInfo.connectionId;
+  if(typeof callback !== 'function') { callback = function () {}; }
 
-  if (this.connectionId === -1) {
-    this.emit('error', new Error('Could not open port.'));
-    return;
+  if(chrome.runtime.lastError)
+  {
+    // this.emit('error', chrome.runtime.lastError); //crashes in browser
+    return callback(chrome.runtime.lastError);
   }
+
+  if(openInfo.connectionId === -1)
+  {
+    // this.emit('error', new Error('Could not open port.')); //crashes in browser
+    return callback(new Error('Could not open port.'));
+  }
+
+  this.connectionId = openInfo.connectionId;
 
   this.emit('open', openInfo);
 
-  if(typeof callback === 'function'){
-    callback(chrome.runtime.lastError, openInfo);
-  }
+  callback(null, openInfo);
 
   this.options.serial.onReceive.addListener(this.proxy('onRead'));
 };
