@@ -1,7 +1,8 @@
 'use strict';
 
-var EE = require('events').EventEmitter;
+var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var stream = require('stream');
 
 var DATABITS = [7, 8];
 var STOPBITS = [1, 2];
@@ -19,20 +20,88 @@ var _options = {
 
 function SerialPortFactory(){
 
-  EE.call(this);
+this.listone = function (callback) {
+  if (typeof chrome != 'undefined' && chrome.serial) {
+    chrome.serial.getDevices(function(ports) {
+      var portObjects = new Array(ports.length);
+      for (var i = 0; i < ports.length; i++) {
+        portObjects[i] = {
+          comName: ports[i].path,
+          manufacturer: ports[i].displayName,
+          serialNumber: '',
+          pnpId: '',
+          locationId:'',
+          vendorId: '0x' + (ports[i].vendorId||0).toString(16),
+          productId: '0x' + (ports[i].productId||0).toString(16)
+        };
+      }
+      callback(chrome.runtime.lastError, portObjects);
+    });
+  } else {
+    callback(new Error('No access to serial ports. Try loading as a Chrome Application.'), null);
+  }
+};
 
 }
 
-util.inherits(SerialPortFactory, EE);
+SerialPortFactory.listtwo = function (callback) {
+  if (typeof chrome != 'undefined' && chrome.serial) {
+    chrome.serial.getDevices(function(ports) {
+      var portObjects = new Array(ports.length);
+      for (var i = 0; i < ports.length; i++) {
+        portObjects[i] = {
+          comName: ports[i].path,
+          manufacturer: ports[i].displayName,
+          serialNumber: '',
+          pnpId: '',
+          locationId:'',
+          vendorId: '0x' + (ports[i].vendorId||0).toString(16),
+          productId: '0x' + (ports[i].productId||0).toString(16)
+        };
+      }
+      callback(chrome.runtime.lastError, portObjects);
+    });
+  } else {
+    callback(new Error('No access to serial ports. Try loading as a Chrome Application.'), null);
+  }
+};
+
+SerialPortFactory.prototype.listthree = function (callback) {
+  if (typeof chrome != 'undefined' && chrome.serial) {
+    chrome.serial.getDevices(function(ports) {
+      var portObjects = new Array(ports.length);
+      for (var i = 0; i < ports.length; i++) {
+        portObjects[i] = {
+          comName: ports[i].path,
+          manufacturer: ports[i].displayName,
+          serialNumber: '',
+          pnpId: '',
+          locationId:'',
+          vendorId: '0x' + (ports[i].vendorId||0).toString(16),
+          productId: '0x' + (ports[i].productId||0).toString(16)
+        };
+      }
+      callback(chrome.runtime.lastError, portObjects);
+    });
+  } else {
+    callback(new Error('No access to serial ports. Try loading as a Chrome Application.'), null);
+  }
+};
+
+util.inherits(SerialPortFactory, EventEmitter);
 
 function SerialPort(path, options, openImmediately, callback) {
+
+  stream.Stream.call(this);
 
   var self = this;
 
   var args = Array.prototype.slice.call(arguments);
   callback = args.pop();
+  var noCallback = false;
   if (typeof(callback) !== 'function') {
     callback = null;
+    noCallback= true;
   }
 
   options = (typeof options !== 'function') && options || {};
@@ -41,10 +110,10 @@ function SerialPort(path, options, openImmediately, callback) {
 
   callback = callback || function (err) {
     if (err) {
-      if (self._events.error) {
-        self.emit('error', err);
-      } else {
+      if (noCallback) {
         SerialPortFactory.emit('error', err);
+      } else {
+        self.emit('error', err);
       }
     }
   };
@@ -148,6 +217,8 @@ function SerialPort(path, options, openImmediately, callback) {
     });
   }
 }
+
+util.inherits(SerialPort, stream.Stream);
 
 SerialPort.prototype.connectionId = -1;
 
@@ -312,27 +383,7 @@ SerialPort.prototype.set = function (options, callback) {
   });
 };
 
-SerialPortFactory.prototype.list = function (callback) {
-  if (typeof chrome != 'undefined' && chrome.serial) {
-    chrome.serial.getDevices(function(ports) {
-      var portObjects = new Array(ports.length);
-      for (var i = 0; i < ports.length; i++) {
-        portObjects[i] = {
-          comName: ports[i].path,
-          manufacturer: ports[i].displayName,
-          serialNumber: '',
-          pnpId: '',
-          locationId:'',
-          vendorId: '0x' + (ports[i].vendorId||0).toString(16),
-          productId: '0x' + (ports[i].productId||0).toString(16)
-        };
-      }
-      callback(chrome.runtime.lastError, portObjects);
-    });
-  } else {
-    callback(new Error('No access to serial ports. Try loading as a Chrome Application.'), null);
-  }
-};
+
 
 // Convert buffer to ArrayBuffer
 SerialPortFactory.prototype.buffer2ArrayBuffer = function (buffer) {
@@ -393,4 +444,4 @@ function toBuffer(ab) {
 
 SerialPortFactory.prototype.SerialPort = SerialPort;
 
-module.exports = SerialPortFactory;
+module.exports = new SerialPortFactory();
