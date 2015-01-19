@@ -17,37 +17,15 @@ var _options = {
   buffersize: 256
 };
 
-function convertOptions(options){
-  switch (options.dataBits) {
-    case 7:
-      options.dataBits = 'seven';
-      break;
-    case 8:
-      options.dataBits = 'eight';
-      break;
-  }
-
-  switch (options.stopBits) {
-    case 1:
-      options.stopBits = 'one';
-      break;
-    case 2:
-      options.stopBits = 'two';
-      break;
-  }
-
-  switch (options.parity) {
-    case 'none':
-      options.parity = 'no';
-      break;
-  }
-
-  return options;
-}
-
-function SerialPort(path, options, openImmediately, callback) {
+function SerialPortFactory(){
 
   EE.call(this);
+
+}
+
+util.inherits(SerialPortFactory, EE);
+
+function SerialPort(path, options, openImmediately, callback) {
 
   var self = this;
 
@@ -63,7 +41,11 @@ function SerialPort(path, options, openImmediately, callback) {
 
   callback = callback || function (err) {
     if (err) {
-      self.emit('error', err);
+      if (self._events.error) {
+        self.emit('error', err);
+      } else {
+        SerialPortFactory.emit('error', err);
+      }
     }
   };
 
@@ -167,8 +149,6 @@ function SerialPort(path, options, openImmediately, callback) {
   }
 }
 
-util.inherits(SerialPort, EE);
-
 SerialPort.prototype.connectionId = -1;
 
 SerialPort.prototype.open = function (callback) {
@@ -233,7 +213,7 @@ SerialPort.prototype.write = function (buffer, callback) {
 
   //Make sure its not a browserify faux Buffer.
   if (buffer instanceof ArrayBuffer === false) {
-    buffer = buffer2ArrayBuffer(buffer);
+    buffer = SerialPortFactory.buffer2ArrayBuffer(buffer);
   }
 
   this.options.serial.send(this.connectionId, buffer, function(info) {
@@ -332,7 +312,7 @@ SerialPort.prototype.set = function (options, callback) {
   });
 };
 
-function SerialPortList(callback) {
+SerialPortFactory.prototype.list = function (callback) {
   if (typeof chrome != 'undefined' && chrome.serial) {
     chrome.serial.getDevices(function(ports) {
       var portObjects = new Array(ports.length);
@@ -352,6 +332,44 @@ function SerialPortList(callback) {
   } else {
     callback(new Error('No access to serial ports. Try loading as a Chrome Application.'), null);
   }
+};
+
+// Convert buffer to ArrayBuffer
+SerialPortFactory.prototype.buffer2ArrayBuffer = function (buffer) {
+  var buf = new ArrayBuffer(buffer.length);
+  var bufView = new Uint8Array(buf);
+  for (var i = 0; i < buffer.length; i++) {
+    bufView[i] = buffer[i];
+  }
+  return buf;
+};
+
+function convertOptions(options){
+  switch (options.dataBits) {
+    case 7:
+      options.dataBits = 'seven';
+      break;
+    case 8:
+      options.dataBits = 'eight';
+      break;
+  }
+
+  switch (options.stopBits) {
+    case 1:
+      options.stopBits = 'one';
+      break;
+    case 2:
+      options.stopBits = 'two';
+      break;
+  }
+
+  switch (options.parity) {
+    case 'none':
+      options.parity = 'no';
+      break;
+  }
+
+  return options;
 }
 
 // Convert string to ArrayBuffer
@@ -360,16 +378,6 @@ function str2ab(str) {
   var bufView = new Uint8Array(buf);
   for (var i = 0; i < str.length; i++) {
     bufView[i] = str.charCodeAt(i);
-  }
-  return buf;
-}
-
-// Convert buffer to ArrayBuffer
-function buffer2ArrayBuffer(buffer) {
-  var buf = new ArrayBuffer(buffer.length);
-  var bufView = new Uint8Array(buf);
-  for (var i = 0; i < buffer.length; i++) {
-    bufView[i] = buffer[i];
   }
   return buf;
 }
@@ -383,9 +391,6 @@ function toBuffer(ab) {
   return buffer;
 }
 
-module.exports = {
-  SerialPort: SerialPort,
-  list: SerialPortList,
-  buffer2ArrayBuffer: buffer2ArrayBuffer,
-  used: [] //TODO: Populate this somewhere.
-};
+SerialPortFactory.prototype.SerialPort = SerialPort;
+
+module.exports = SerialPortFactory;
